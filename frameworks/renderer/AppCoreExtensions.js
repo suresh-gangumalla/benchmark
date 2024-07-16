@@ -20,14 +20,19 @@ import { CoreExtension, SdfTrFontFace } from "@lightningjs/renderer/core";
 export default class AppCoreExtension extends CoreExtension {
   async run(stage) {
     stage.fontManager.addFontFace(
-      new SdfTrFontFace(
-        "Ubuntu",
-        {},
-        "msdf",
-        stage,
-        "./fonts/Ubuntu-Bold.msdf.png",
-        "./fonts/Ubuntu-Bold.msdf.json"
-      )
+      new SdfTrFontFace('msdf', {
+        fontFamily: 'Ubuntu',
+        descriptors: {},
+        atlasUrl: './fonts/Ubuntu-Bold.msdf.png',
+        atlasDataUrl: './fonts/Ubuntu-Bold.msdf.json',
+        stage: stage,
+        metrics: {
+          ascender: 776,
+          descender: -185,
+          lineGap: 56,
+          unitsPerEm: 1000,
+        },
+      })
     );
   }
 }
