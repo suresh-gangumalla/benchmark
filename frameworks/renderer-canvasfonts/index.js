@@ -18,7 +18,6 @@
 
 import {
     RendererMain,
-    SdfTrFontFace,
 } from '@lightningjs/renderer';
 
 import { colours, adjectives, nouns } from '../../shared/data';
@@ -39,22 +38,6 @@ let rootNode = renderer.createNode({
   color: 0,
   parent: renderer.root,
 });
-
-renderer.stage.fontManager.addFontFace(
-    new SdfTrFontFace('msdf', {
-        fontFamily: 'Ubuntu',
-        descriptors: {},
-        atlasUrl: './fonts/Ubuntu-Bold.msdf.png',
-        atlasDataUrl: './fonts/Ubuntu-Bold.msdf.json',
-        stage: renderer.stage,
-        metrics: {
-            ascender: 850,
-            descender: -250,
-            lineGap: 60,
-            unitsPerEm: 1000,
-        },
-    })
-);
 
 const pick = dict => dict[Math.round(Math.random() * 1000) % dict.length];
 
@@ -81,7 +64,7 @@ const createRow = (parent, config = {}) => {
         parent: holder,
         text: text,
         alpha: 0.8,
-        fontFamily: 'Ubuntu',
+        fontFamily: 'sans-serif',
         color: textColor || 0xFFFFFFFF,
         fontSize: 26,
     });
