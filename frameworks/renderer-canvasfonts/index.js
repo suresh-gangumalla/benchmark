@@ -36,7 +36,11 @@ const renderer = new RendererMain({
     clearColor: 0x00000000,
     numImageWorkers: 1,
     renderEngine: CanvasCoreRenderer,
-    fontEngines: [ CanvasTextRenderer ]
+    fontEngines: [ CanvasTextRenderer ],
+    textureMemory: {
+        criticalThreshold: 0,
+    },
+    textureProcessingTimeLimit: 0,
 }, 'app');
 
 let rootNode = renderer.createNode({
