@@ -159,6 +159,9 @@ const weightedResults = {
  * @returns {number} - The calculated average mean value.
  */
 const avgMean = (values) => {
+    if (!values || values.length === 0) {
+        return 0;
+    }
     return (values.reduce((a, b) => a + b) / values.length);
 }
 
