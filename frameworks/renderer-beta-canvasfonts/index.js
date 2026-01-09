@@ -17,7 +17,8 @@
 
 
 import { RendererMain } from '@lightningjs/renderer';
-import { WebGlCoreRenderer, SdfTextRenderer } from '@lightningjs/renderer/webgl';
+import { WebGlCoreRenderer } from '@lightningjs/renderer/webgl';
+import { CanvasTextRenderer } from '@lightningjs/renderer/canvas';
 
 import { colours, adjectives, nouns } from '../../shared/data.js';
 import { warmup } from '../../shared/utils/warmup.js';
@@ -33,33 +34,13 @@ const renderer = new RendererMain({
     clearColor: 0x00000000,
     numImageWorkers: 1,
     renderEngine: WebGlCoreRenderer,
-    fontEngines: [ SdfTextRenderer ],
-    textureMemory: {
-        criticalThreshold: 0,
-    },
-    textureProcessingTimeLimit: 0
+    fontEngines: [ CanvasTextRenderer ]
 }, 'app');
 
 let rootNode = renderer.createNode({
   color: 0,
   parent: renderer.root,
 });
-
-const stage = renderer.stage;
-stage.loadFont('sdf', {
-    fontFamily: 'Ubuntu',
-    descriptors: {},
-    atlasUrl: './fonts/Ubuntu-Bold.msdf.png',
-    atlasDataUrl: './fonts/Ubuntu-Bold.msdf.json',
-    stage: stage,
-    metrics: {
-        ascender: 850,
-        descender: -250,
-        lineGap: 60,
-        unitsPerEm: 1000,
-    },
-})
-
 
 const pick = dict => dict[Math.round(Math.random() * 1000) % dict.length];
 
@@ -69,24 +50,25 @@ const createRow = (parent, config = {}) => {
     const x = index % 27 * 40
     const y  = ~~( index / 27 ) * 40
 
-    const holder = renderer.createNode({
+    const nodeProps = {
         x: x,
         y: y,
-        w: 200,
-        h: 40,
+        width: 200,
+        height: 40,
         color: color || 0x00000000,
-        parent: parent || rootNode,
-    });
+        parent: parent || rootNode
+    }
 
-    const textNode = renderer.createTextNode({
+    const holder = renderer.createNode(nodeProps);
+    renderer.createTextNode({
         x: 5,
         y: 2,
-        w: 200,
-        h: 40,
+        width: 200,
+        height: 40,
         parent: holder,
         text: text,
         alpha: 0.8,
-        fontFamily: 'Ubuntu',
+        fontFamily: 'sans-serif',
         color: textColor || 0xFFFFFFFF,
         fontSize: 26,
     });
@@ -101,8 +83,8 @@ const createRowWithoutText = (parent, config = {}) => {
     const node = renderer.createNode({
         x: x,
         y: y,
-        w: 4,
-        h: 4,
+        width: 4,
+        height: 4,
         color: color || 0x00000000,
         parent: parent || rootNode,
     });
@@ -204,27 +186,19 @@ const swapRows = () => {
 
         const a = rootNode.children[998];
         const b = rootNode.children[1];
-
-        // Store original values of node a
-        const tempY = a.y;
-        const tempX = a.x;
-        const tempColor = a.color;
-        const tempTextColor = a.children[0].color;
-        const tempText = a.children[0].text;
-
-        // Set a's properties to b's values
+     
+        const temp = a;
         a.y = b.y;
         a.x = b.x;
         a.color = b.color;
         a.children[0].color = b.children[0].color;
         a.children[0].text = b.children[0].text;
 
-        // Set b's properties to a's original values
-        b.y = tempY;
-        b.x = tempX;
-        b.color = tempColor;
-        b.children[0].color = tempTextColor;
-        b.children[0].text = tempText;
+        b.y = temp.y;
+        b.x = temp.x;
+        b.color = temp.color;
+        b.children[0].color = temp.children[0].color;
+        b.children[0].text = temp.children[0].text;
     });
 }
 
@@ -240,8 +214,9 @@ const selectRandomNode = () => {
         randomNode.x = 100;
         randomNode.y = 100;
         randomNode.color = 0xFF0000FF; //red
-        randomNode.w = 1200;
-        randomNode.h = 400;
+        randomNode.width = 1200;
+        randomNode.height = 400;
+        randomNode.zIndex = 1000;
 
         const textNode = randomNode.children[0];
         textNode.color = 0x000000FF; //black
@@ -297,13 +272,9 @@ const createMemoryBenchmark = async () => {
 const runBenchmark = async () => {
     const results = {};
 
-    console.log('Starting createMany benchmark...');
-
     await warmup(createMany, 1000, 5);
     const { average: createAvg, spread: createSpread } = await run(createMany, 1000, 5);
     results.create = `${createAvg.toFixed(2)}ms ±${createSpread.toFixed(2)}`;
-
-    console.log('Starting updateMany benchmark...');
 
     await createMany(1000);
     await warmup(updateMany, 1000, 5);
@@ -311,15 +282,11 @@ const runBenchmark = async () => {
     const { average: updateAvg, spread: updateSpread } = await run(updateMany, 1000, 5);
     results.update = `${updateAvg.toFixed(2)}ms ±${updateSpread.toFixed(2)}`;
 
-    console.log('Starting skipNth benchmark...');
-
     await createMany(1000);
     await warmup(updateMany, [1000, 10], 5);
     await createMany(1000);
     const { average: skipNthAvg, spread: skipNthSpread } = await run(updateMany, [1000, 10], 5);
     results.skipNth = `${skipNthAvg.toFixed(2)}ms ±${skipNthSpread.toFixed(2)}`;
-
-    console.log('Starting selectRandomNode benchmark...');
 
     await createMany(1000);
     await warmup(selectRandomNode, undefined, 5);
@@ -327,15 +294,11 @@ const runBenchmark = async () => {
     const { average: selectAvg, spread: selectSpread } = await run(selectRandomNode, undefined, 5);
     results.select = `${selectAvg.toFixed(2)}ms ±${selectSpread.toFixed(2)}`;
 
-    console.log('Starting swapRows benchmark...');
-
     await createMany(1000);
     await warmup(swapRows, undefined, 5);
     await createMany(1000);
     const { average: swapAvg, spread: swapSpread } = await run(swapRows, undefined, 5);
     results.swap = `${swapAvg.toFixed(2)}ms ±${swapSpread.toFixed(2)}`;
-
-    console.log('Starting removeRow benchmark...');
 
     await createMany(1000);
     await warmup(removeRow, undefined, 5);
@@ -343,19 +306,13 @@ const runBenchmark = async () => {
     const { average: removeAvg, spread: removeSpread } = await run(removeRow, undefined, 5);
     results.remove = `${removeAvg.toFixed(2)}ms ±${removeSpread.toFixed(2)}`;
 
-    console.log('Starting createLots benchmark...');
-
     await warmup(createMany, 10000, 5);
     const { average: createLotsAvg, spread: createLotsSpread } = await run(createMany, 10000, 5);
     results.createLots = `${createLotsAvg.toFixed(2)}ms ±${createLotsSpread.toFixed(2)}`;
 
-    console.log('Starting appendMany benchmark...');
-
     await warmup(appendMany, 1000, 5);
     const { average: appendAvg, spread: appendSpread } = await run(appendMany, 10000, 5);
     results.append = `${appendAvg.toFixed(2)}ms ±${appendSpread.toFixed(2)}`;
-
-    console.log('Starting clear benchmark...');
 
     await warmup(clearTest, 1000, 5);
     const { average: clearAvg, spread: clearSpread } = await run(clearTest, 10000, 5);
