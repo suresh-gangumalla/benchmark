@@ -1,29 +1,23 @@
 import renderer from 'ftl';
-import browser from 'ftl/platform/browser';
-import webgl from 'ftl/renderer/webgl';
-import msdfTextEngine from 'ftl/text/msdf';
-import { DefaultRectShader, DefaultTextureShader, MsdfTextShader } from 'ftl/shaders';
-import { createShader } from 'ftl/shaders/create';
+import browserPlatform from 'ftl/platform/browser';
+import canvasRenderer from 'ftl/renderer/canvas';
+import canvasTextEngine from 'ftl/text/canvas';
 
 import { adjectives, nouns } from '../../shared/data.js';
 import { warmup } from '../../shared/utils/warmup.js';
 import { run } from '../../shared/utils/run.js';
 
-const shaders = {
-  rectangleShader: createShader(DefaultRectShader),
-  textureShader: createShader(DefaultTextureShader),
-  msdfTextShader: createShader(MsdfTextShader),
-  additionalShaders: [],
-}
-
-//DefaultBatchShader.setMaxTextures(16)
 const canvas = document.querySelector('canvas')
-const { root, createElement, createText, signals, loadFont } = renderer({
-  platform: browser,
-  renderer: webgl(canvas, shaders),
+// const ctx = canvas.getContext('2d');
+
+const { root, createElement, createText, signals } = renderer({
+  platform: browserPlatform,
+  renderer: canvasRenderer(canvas, {
+    sortChildrenByZ: false,
+  }),
   text: {
-    msdf: msdfTextEngine,
-    defaultTextEngine: 'msdf'
+    canvas: canvasTextEngine,
+    defaultTextEngine: 'canvas'
   },
   config: {
     width: canvas.width,
@@ -32,7 +26,6 @@ const { root, createElement, createText, signals, loadFont } = renderer({
     maxTextureCount: 4096,
   }
 });
-
 
 const colours = [
   [1.0, 0.0, 0.0, 1.0], // red
@@ -97,7 +90,8 @@ const createRow = (parent, index) => {
   const label = createElement({
     x: 5, y: 2, w: 200, h: 40,
     text: createText({
-      fontFamily: 'Ubuntu',
+      type: 'canvas',
+      fontFamily: 'sans-serif',
       alpha: 0.8,
       fontSize: 26,
       text: `${pick(adjectives)} ${pick(nouns)}`,
@@ -106,7 +100,7 @@ const createRow = (parent, index) => {
     zIndex: zIndex,
   });
 
-   holder.addChild(label);
+  holder.addChild(label);
   parent.addChild(holder);
   return holder;
 };
@@ -159,8 +153,9 @@ const updateMany = (count, skip = 0) => new Promise((resolve) => {
     if (!element || !element.children?.[0]) continue;
     element.color = pick(colours);
     const child = element.children[0];
-    child.texture = createText({
-      fontFamily: 'Ubuntu',
+    child.text = createText({
+      type: 'canvas',
+      fontFamily: 'sans-serif',
       alpha: 0.8,
       fontSize: 26,
       text: `${pick(adjectives)} ${pick(nouns)}`,
@@ -210,7 +205,8 @@ const selectRandomNode = () => new Promise((resolve) => {
 
   node.children[0].x = 10;
   node.children[0].y = 10;
-  node.children[0].texture = createText({
+  node.children[0].text = createText({
+    type: 'canvas',
     fontFamily: 'sans-serif',
     fontSize: 128,
     text: `${pick(adjectives)} ${pick(nouns)}`,
@@ -257,14 +253,6 @@ const createMemoryBenchmark = async () => {
 };
 
 const runBenchmark = async () => {
-
-  await loadFont('msdf', {
-    family: 'Ubuntu',
-    atlas: '/assets/Ubuntu-Regular.msdf.png',
-    fontData: '/assets/UbuntuRegularMsdf.json'
-  })
-
-  
   const results = {};
 
   await warmup(createMany, 1000, 5);
