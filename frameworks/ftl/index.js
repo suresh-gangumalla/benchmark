@@ -271,8 +271,8 @@ const runBenchmark = async () => {
 
   await loadFont('msdf', {
     family: 'Ubuntu',
-    atlas: '/assets/Ubuntu-Regular.msdf.png',
-    fontData: '/assets/UbuntuRegularMsdf.json'
+    atlas: './assets/Ubuntu-Regular.msdf.png',
+    fontData: './assets/UbuntuRegularMsdf.json'
   })
 
   
