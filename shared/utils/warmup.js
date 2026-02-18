@@ -15,8 +15,9 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-let i = 0;
 export const warmup = (fn, argument, count = 5) => {
+    let i = 0;
+
     return new Promise((resolve) => {
         const runWarmup = (fn, argument, count) => {
             // check if arguments is an array

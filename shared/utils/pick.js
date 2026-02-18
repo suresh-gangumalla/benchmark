@@ -15,19 +15,4 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { CoreExtension, SdfTrFontFace } from "@lightningjs/renderer/core";
-
-export default class AppCoreExtension extends CoreExtension {
-  async run(stage) {
-    stage.fontManager.addFontFace(
-      new SdfTrFontFace(
-        "Ubuntu",
-        {},
-        "msdf",
-        stage,
-        "./fonts/Ubuntu-Bold.msdf.png",
-        "./fonts/Ubuntu-Bold.msdf.json"
-      )
-    );
-  }
-}
+export const pick = (dict) => dict[Math.round(Math.random() * 1000) % dict.length];

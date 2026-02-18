@@ -2,11 +2,11 @@
  * Main entry point for the application.
  */
 
-// import styling from './utils/styling';
 import Lightning from '@lightningjs/core';
 
-import { adjectives, nouns } from '../../shared/data';
-import { warmup } from '../../shared/utils/warmup';
+import { adjectives, nouns } from '../../shared/data.js';
+import { warmup } from '../../shared/utils/warmup.js';
+import { run } from '../../shared/utils/run.js';
 
 // apply CSS styling
 const style = document.createElement('style');
@@ -33,9 +33,9 @@ const pick = dict => dict[Math.round(Math.random() * 1000) % dict.length];
 
 const options = {
     stage: {
-        w: 1080,
-        h: 1920,
-        clearColor: 0xFF000000,
+        w: 1920,
+        h: 1080,
+        clearColor: 0x00000000,
         canvas2d: false,
         useImageWorker: true,
         pauseRafLoopOnIdle: true,
@@ -50,12 +50,13 @@ class Block extends Lightning.Component {
             x: 0, y: 0,
             rect: true, w: 200, h: 40, color: 0x00000000,
             Label: {
-                x: 5, y: 2, w: 200, h: 40, text: { text: '', fontSize: 26, fontFace: 'Ubuntu', textColor: 0xFFFFFFFF}
+                x: 5, y: 2,
+                text: { text: '', fontSize: 26, fontFace: 'sans-serif', textColor: 0xFFFFFFFF, wordWrap: false }
             }
         }
     }
 
-    _firstActive() {
+    _init() {
         const { color, textColor, text, index } = this.data;
 
         const x = index % 27 * 40
@@ -65,9 +66,7 @@ class Block extends Lightning.Component {
             x: x,
             y: y,
             color: color || 0x00000000,
-            Label: {
-                text: { text: text, fontSize: 26, fontFace: 'Ubuntu', textColor: textColor || 0xFFFFFFFF}
-            }
+            Label: { text: { text: text, textColor: textColor || 0xFFFFFFFF } },
         });
     }
 }
@@ -80,7 +79,7 @@ class BlockNoText extends Lightning.Component {
         }
     }
 
-    _firstActive() {
+    _init() {
         const { color, index } = this.data;
 
         const x = index % 216 * 4
@@ -101,6 +100,29 @@ export class App extends Lightning.Application {
         }
     }
 
+    waitUntilIdle(startTime) {
+        return new Promise( (resolve, reject) => {
+            let timeout = null;
+            let lastTime;
+        
+            const done = () => {
+                clearTimeout(timeout);
+                this.stage.off('idle', rendererIdle);
+                resolve(lastTime);
+            }
+        
+            const rendererIdle = () => {
+                lastTime = performance.now() - startTime;
+                if (timeout) {
+                    clearTimeout(timeout);
+                }
+                setTimeout(done, 200);
+            }
+        
+            this.stage.on('idle', rendererIdle);
+        })
+    }
+
     _init() {
         // get hash of the url
         const hash = window.location.hash.substring(1);
@@ -112,8 +134,8 @@ export class App extends Lightning.Application {
         }
     }
 
-    _createRow(index) {
-        this.tag('Items').childList.add({
+    _createRow(items, index) {
+        items.childList.add({
             type: Block, 
             data: {
                 color: pick(colours),
@@ -124,31 +146,53 @@ export class App extends Lightning.Application {
         });
     }
 
-    _clear() {
+    _clear(trigger = false) {
         return new Promise( resolve => {
-            const clearPerf = performance.now();
+            this.waitUntilIdle(performance.now()).then(time => {
+                if (trigger) {
+                    this.tag('Items').childList.clear();
+                }
+
+                resolve({ time });
+            });
+
             this.tag('Items').childList.clear();
 
-            this.stage.once('frameEnd', () => {
-                const time = performance.now() - clearPerf;
-                resolve({ time });
+            if (trigger) {
+                this.tag('Items').childList.add({
+                    type: Block,
+                    data: {
+                        color: pick(colours),
+                        textColor: pick(colours),
+                        text: 'Cleared',
+                        index: 0
+                    }
+                });
+            }
+        });
+    }
+
+    clearTest() {
+        return new Promise( resolve => {
+            this.createMany(1000, true).then( () => {
+                this._clear(true).then( time => {
+                    resolve(time);
+                });
             });
         });
     }
 
-    createMany(amount = 1000) {
+    createMany(amount = 1000, trigger = false) {
         return new Promise( resolve => {
-            this._clear().then(() => {
-                const createPerf = performance.now();
-                for (let i = 0; i < amount; i++) {
-                    this._createRow(i);
-                }
-
-                this.stage.once('idle', () => {
-                    const time = performance.now() - createPerf;
+            this._clear(trigger).then(() => {
+                this.waitUntilIdle(performance.now()).then(time => {
                     resolve({ time });
                 });
 
+                const items = this.tag('Items');
+                for (let i = 0; i < amount; i++) {
+                    this._createRow(items, i);
+                }
             });
         })
     }
@@ -156,9 +200,13 @@ export class App extends Lightning.Application {
     createManyWithoutText(amount = 1000) {
         return new Promise( resolve => {
             this._clear().then(() => {
-                const createPerf = performance.now();
+                this.waitUntilIdle(performance.now()).then(time => {
+                    resolve({ time });
+                });
+
+                const items = this.tag('Items');
                 for (let i = 0; i < amount; i++) {
-                    this.tag('Items').childList.add({
+                    items.childList.add({
                         type: BlockNoText,
                         data: {
                             color: pick(colours),
@@ -166,20 +214,19 @@ export class App extends Lightning.Application {
                         }
                     });
                 }
-
-                this.stage.once('idle', () => {
-                    const time = performance.now() - createPerf;
-                    resolve({ time });
-                });
             });
         });
     }
 
     updateMany(count, skip = 0) {
         return new Promise( resolve => {
-            const updatePerf = performance.now();
+            this.waitUntilIdle(performance.now()).then(time => {
+                resolve({ time });
+            });
+
+            const items = this.tag('Items');
             for (let i = 0; i < count; i += (skip + 1)) {
-                const child = this.tag('Items').childList.getAt(i);
+                const child = items.childList.getAt(i);
                 if (child) {
                     child.patch({
                         color: pick(colours),
@@ -189,17 +236,15 @@ export class App extends Lightning.Application {
                     });
                 }
             }
-
-            this.stage.once('idle', () => {
-                const time = performance.now() - updatePerf;
-                resolve({ time });
-            });
         });
     }
 
     selectRandomNode() {
         return new Promise( resolve => {
-            const selectPerf = performance.now();
+            this.waitUntilIdle(performance.now()).then(time => {
+                resolve({ time });
+            });
+
             const index = Math.floor(Math.random() * this.tag('Items').childList.length);
             const child = this.tag('Items').childList.getAt(index);
             const text = child.data.text;
@@ -217,32 +262,26 @@ export class App extends Lightning.Application {
                 label.patch({
                     x: 10,
                     y: 10,
-                    text: { text: text, fontSize: 40, textColor: 0xFF000000 }
+                    text: { fontSize: 128, textColor: 0xFF000000 }
                 });
             }
-
-            this.stage.once('idle', () => {
-                const time = performance.now() - selectPerf;
-                resolve({ time });
-            });
-
         });
     }
 
     swapRows() {
         return new Promise( resolve => {
             return this.createMany().then( () => {
-                const swapPerf = performance.now();
-                this.stage.once('idle', () => {
-                    const time = performance.now() - swapPerf;
+                this.waitUntilIdle(performance.now()).then(time => {
                     resolve({ time });
                 });
 
                 const a = this.tag('Items').childList.getAt(998);
                 const b = this.tag('Items').childList.getAt(1);
             
-                const temp = a;
+                const { x, y, data } = a;
+                
                 a.patch({
+                    data: b.data,
                     x: b.x,
                     y: b.y,
                     color: b.color,
@@ -252,11 +291,12 @@ export class App extends Lightning.Application {
                 });
 
                 b.patch({
-                    x: temp.x,
-                    y: temp.y,
-                    color: temp.color,
+                    data: data,
+                    x: x,
+                    y: y,
+                    color: data.color,
                     Label: {
-                        text: { text: temp.data.text, textColor: temp.data.textColor }
+                        text: { text: data.text, textColor: data.textColor }
                     }
                 });
             });
@@ -265,27 +305,26 @@ export class App extends Lightning.Application {
 
     removeRow() {
         return new Promise( resolve => {
-            const removePerf = performance.now();
-            const index = Math.floor(Math.random() * this.tag('Items').childList.length);
-            this.tag('Items').childList.removeAt(index);
-
-            this.stage.once('idle', () => {
-                const time = performance.now() - removePerf;
+            this.waitUntilIdle(performance.now()).then(time => {
                 resolve({ time });
             });
+
+            const index = Math.floor(Math.random() * this.tag('Items').childList.length);
+            this.tag('Items').childList.removeAt(index);
         });
     }
 
     appendMany(amount = 1000) {
         return new Promise( resolve => {
-            const appendPerf = performance.now();
-            for (let i = 0; i < amount; i++) {
-                this._createRow(i);
-            }
+            this.createMany(1000).then(() =>{
+                this.waitUntilIdle(performance.now()).then(time => {
+                    resolve({ time });
+                });
 
-            this.stage.once('idle', () => {
-                const time = performance.now() - appendPerf;
-                resolve({ time });
+                const items = this.tag('Items')
+                for (let i = 0; i < amount; i++) {
+                    this._createRow(items, i);
+                }
             });
         });
     }
@@ -293,74 +332,49 @@ export class App extends Lightning.Application {
     async runBenchmark() {
         const results = {}
 
-        console.log('Starting createMany benchmark');
-        
         await warmup(this.createMany.bind(this), 1000, 5);
-        const createRes = await this.createMany(1000);
-        results.create = createRes.time.toFixed(2);
-
-        console.log('Starting updateMany benchmark')
+        const { average: createAvg, spread: createSpread } = await run(this.createMany.bind(this), 1000, 5);
+        results.create = `${createAvg.toFixed(2)}ms ±${createSpread.toFixed(2)}`;
 
         await this.createMany(1000);
         await warmup(this.updateMany.bind(this), 1000, 5);
         await this.createMany(1000);
-        const updateRes = await this.updateMany(1000);
-        results.update = updateRes.time.toFixed(2);
-
-        console.log('Starting updateMany with skip benchmark')
+        const { average: updateAvg, spread: updateSpread } = await run(this.updateMany.bind(this), 1000, 5);
+        results.update = `${updateAvg.toFixed(2)}ms ±${updateSpread.toFixed(2)}`;
 
         await this.createMany(1000);
         await warmup(this.updateMany.bind(this), [1000, 10], 5);
         await this.createMany(1000);
-        const skipNthRes = await this.updateMany(1000, 10);
-        results.skipNth = skipNthRes.time.toFixed(2);
-
-        console.log('Starting selectRandomNode benchmark');
+        const { average: skipNthAvg, spread: skipNthSpread } = await run(this.updateMany.bind(this), [1000, 10], 5);
+        results.skipNth = `${skipNthAvg.toFixed(2)}ms ±${skipNthSpread.toFixed(2)}`;
 
         await this.createMany(1000);
         await warmup(this.selectRandomNode.bind(this), undefined, 5);
         await this.createMany(1000);
-        const selectRes = await this.selectRandomNode();
-        results.select = selectRes.time.toFixed(2);
-
-        console.log('Starting swapRows benchmark');
+        const { average: selectAvg, spread: selectSpread } = await run(this.selectRandomNode.bind(this), undefined, 5);
+        results.select = `${selectAvg.toFixed(2)}ms ±${selectSpread.toFixed(2)}`;
 
         await warmup(this.swapRows.bind(this), undefined, 5);
-        const swapRes = await this.swapRows();
-        results.swap = swapRes.time.toFixed(2);
-
-        console.log('Starting removeRow benchmark');
+        const { average: swapAvg, spread: swapSpread } = await run(this.swapRows.bind(this), undefined, 5);
+        results.swap = `${swapAvg.toFixed(2)}ms ±${swapSpread.toFixed(2)}`;
 
         await this.createMany(1000);
         await warmup(this.removeRow.bind(this), undefined, 5);
         await this.createMany(1000);
-        const removeRes = await this.removeRow();
-        results.remove = removeRes.time.toFixed(2);
-
-        console.log('Starting createMany with 10k items benchmark');
+        const { average: removeAvg, spread: removeSpread } = await run(this.removeRow.bind(this), undefined, 5);
+        results.remove = `${removeAvg.toFixed(2)}ms ±${removeSpread.toFixed(2)}`;
 
         await warmup(this.createMany.bind(this), 10000, 5);
-        const createResLots = await this.createMany(10000);
-        results.createLots = createResLots.time.toFixed(2);
+        const { average: createLotsAvg, spread: createLotsSpread } = await run(this.createMany.bind(this), 10000, 5);
+        results.createLots = `${createLotsAvg.toFixed(2)}ms ±${createLotsSpread.toFixed(2)}`;
 
-        console.log('Starting appendMany benchmark');
+        await warmup(this.appendMany.bind(this), 1000, 5);
+        const { average: appendAvg, spread: appendSpread } = await run(this.appendMany.bind(this), 10000, 5);
+        results.append = `${appendAvg.toFixed(2)}ms ±${appendSpread.toFixed(2)}`;
 
-        await this._clear();
-        // L2 goes out of array bounds if we append 5x1000 items
-        // so we appeend 2x 1000 with a clear inbetween instead
-        // this is only for the warmup phase so it's fine
-        await warmup(this.appendMany.bind(this), 1000, 2);
-        await this._clear();
-        await warmup(this.createMany.bind(this), 1000, 2);
-        await this.createMany(1000);
-        const appendRes = await this.appendMany(1000);
-        results.append = appendRes.time.toFixed(2);
-
-        console.log('Starting clear benchmark');
-
-        await warmup(this.createMany.bind(this), 1000, 5);
-        const clearRes = await this._clear();
-        results.clear = clearRes.time.toFixed(2);
+        await warmup(this.clearTest.bind(this), 1000, 5);
+        const { average: clearAvg, spread: clearSpread } = await run(this.clearTest.bind(this), 10000, 5);
+        results.clear = `${clearAvg.toFixed(2)}ms ±${clearSpread.toFixed(2)}`;
 
         Object.keys(results).forEach(key => {
             console.log(`${key}: ${results[key]}ms`);
